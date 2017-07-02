@@ -1,0 +1,7 @@
+spotify:
+  client:
+    id: ${SPOTIFY_CLIENT_ID}
+    secret: ${SPOTIFY_CLIENT_SECRET}
+
+openweather:
+  apikey: ${OPENWEATHER_API_KEY}
