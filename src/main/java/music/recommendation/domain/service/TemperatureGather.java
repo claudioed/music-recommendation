@@ -23,12 +23,17 @@ public class TemperatureGather {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(TemperatureGather.class);
 
-  private final Cache<String, CurrentWeather> cache = CacheBuilder
+  private final Cache<String, CurrentWeather> cityCache = CacheBuilder
+      .newBuilder().maximumSize(100).expireAfterWrite(24L, TimeUnit.HOURS).build();
+
+  private final Cache<String, CurrentWeather> coordCache = CacheBuilder
       .newBuilder().maximumSize(100).expireAfterWrite(24L, TimeUnit.HOURS).build();
 
   private final RestTemplate restTemplate;
 
   private final OpenWeatherCredentials openWeatherCredentials;
+
+  private static final String COOR_KEY_PATTERN = "%s+%s";
 
   @Autowired
   public TemperatureGather(RestTemplate restTemplate, OpenWeatherCredentials openWeatherCredentials) {
@@ -42,6 +47,8 @@ public class TemperatureGather {
       return Observable.create(subscriber -> {
         LOGGER.info("QUERY BY COORDINATE...");
         final CurrentWeather data = restTemplate.getForObject("http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={appid}", CurrentWeather.class,queryData.getLat(),queryData.getLon(),this.openWeatherCredentials.getApiKey());
+        LOGGER.info(String.format("Current temperature is %s (kelvin) ",data.getMain().getTemp()));
+        coordCache.put(String.format(COOR_KEY_PATTERN,String.valueOf(queryData.getLat()),String.valueOf(queryData.getLon())),data);
         subscriber.onNext(data);
         subscriber.onCompleted();
       });
@@ -52,13 +59,20 @@ public class TemperatureGather {
           .getForObject("http://api.openweathermap.org/data/2.5/weather?q={city}&appid={apiKey}",
               CurrentWeather.class, queryData.getCity(), this.openWeatherCredentials.getApiKey());
       LOGGER.info(String.format("Current temperature is %s (kelvin) ",data.getMain().getTemp()));
+      cityCache.put(queryData.getCity(),data);
       subscriber.onNext(data);
       subscriber.onCompleted();
     });
   }
 
   public Observable<CurrentWeather> fromCache(@NonNull QueryData queryData){
-    return Observable.just(this.cache.getIfPresent(queryData));
+    LOGGER.info("RETRIEVE TEMPERATURE DATA FROM CACHE...");
+    if(queryData.isByCoordinate()){
+      LOGGER.info("RETRIEVE DATA TEMPERATURE FROM CACHE...COORDINATE");
+      return Observable.just(this.coordCache.getIfPresent(String.format(COOR_KEY_PATTERN,String.valueOf(queryData.getLat()),String.valueOf(queryData.getLon()))));
+    }
+    LOGGER.info("RETRIEVE DATA FROM TEMPERATURE CACHE...CITY");
+    return Observable.just(this.cityCache.getIfPresent(queryData.getCity()));
   }
 
 }

@@ -1,6 +1,10 @@
 package music.recommendation.domain.service;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.NonNull;
 import music.recommendation.domain.spotify.SpotifyResponse;
@@ -24,6 +28,9 @@ public class MusicGather {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MusicGather.class);
 
+  private final Cache<String, List<String>> musicCache = CacheBuilder
+      .newBuilder().maximumSize(100).expireAfterWrite(24L, TimeUnit.HOURS).build();
+
   private static final String API_SPOTIFY = "https://api.spotify.com/v1/search";
 
   private String QUERY_STRING_PATTERN = "?q=genre:{genre}&type=track";
@@ -35,18 +42,27 @@ public class MusicGather {
     this.restTemplate = restTemplate;
   }
 
+  @HystrixCommand(fallbackMethod = "fromCache")
   public Observable<List<String>> musicsByStyle(@NonNull final String style) {
     return Observable.create(subscriber -> {
       final HttpHeaders headers = new HttpHeaders();
       LOGGER.info("Music Style Recommended is " + style);
-      headers.set("Authorization", "Bearer " + "BQCJg3oshHBj5IpreRNDzQHb-GecoM1trC1vqTNo_WPrPmeL9uOqwxqwCswQ59R0cmcgJ-y-gEp6hmH7yyHKx2Z4nTEswjx4-YPOTa3J15e0F7C-eDNvMITvgnMM8lyr1RZG_GXJqvQ2L5hRBl3jbCp7VLm80g");
+      headers.set("Authorization", "Bearer " + "BQAbTY6joiQR3dYRse3T7iMhf5wwbsje7kNiWzBUAfsPCVN6h3TvuG4tkgaOn4qBTfC7Zixu2GStoFfymZn1IduNVNWf9cAcwJ1q2EhqvCQDSnN5g6_xSSi8tKlInuv6jBvmAzjws1KnHh14IS_SbHjGjp6BvQ");
       final HttpEntity httpEntity = new HttpEntity(headers);
       final ResponseEntity<SpotifyResponse> response = restTemplate
           .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET, httpEntity,
               SpotifyResponse.class, style);
-      subscriber.onNext(response.getBody().getTracks().getItems().stream().map(Track::getName).collect(Collectors.toList()));
+      final List<String> musics = response.getBody().getTracks().getItems().stream()
+          .map(Track::getName).collect(Collectors.toList());
+      this.musicCache.put(style,musics) ;
+      subscriber.onNext(musics);
       subscriber.onCompleted();
     });
+  }
+
+  public Observable<List<String>> fromCache(@NonNull final String style) {
+    LOGGER.info("RETRIEVE DATA FROM MUSIC CACHE...");
+    return Observable.just(this.musicCache.getIfPresent(style));
   }
 
 }

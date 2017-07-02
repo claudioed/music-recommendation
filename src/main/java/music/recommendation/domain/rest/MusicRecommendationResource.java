@@ -23,16 +23,9 @@ public class MusicRecommendationResource {
     this.musicRecommendationService = musicRecommendationService;
   }
 
-//  @GetMapping
-//  public String recommend(){
-//    final QueryData queryData = QueryData.builder().city("London,uk").build();
-//    this.musicRecommendationService.musics(queryData);
-//    return "OK";
-//  }
-
   @GetMapping
-  public List<String> musics(@RequestParam("lat") Double lat,@RequestParam("lon") Double lon,@RequestParam("city") String city){
-    QueryData queryData = QueryData.builder().lat(lat).lon(lon).city(city).build();
+  public List<String> musics(@RequestParam("city") String city){
+    QueryData queryData = QueryData.builder().lat(null).lon(null).city(city).build();
     return this.musicRecommendationService.musics(queryData).toBlocking().first();
   }
 

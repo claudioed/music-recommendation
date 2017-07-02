@@ -1,6 +1,5 @@
 package music.recommendation.domain.service;
 
-import java.util.Arrays;
 import java.util.List;
 import lombok.NonNull;
 import music.recommendation.domain.music.CelsiusTemperature;
