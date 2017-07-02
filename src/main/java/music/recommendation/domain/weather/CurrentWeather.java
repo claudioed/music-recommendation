@@ -14,4 +14,10 @@ public class CurrentWeather {
 
   Main main;
 
+  String name;
+
+  String id;
+
+  String cod;
+
 }

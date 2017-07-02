@@ -8,7 +8,7 @@ public class MusicStyleShuffler {
   public String style(Double temperature) {
     if (temperature >= 15 && temperature <= 30) {
       return "pop";
-    } else if (temperature >= 10 && temperature <= 14) {
+    } else if (temperature >= 10 && temperature <= 14.99) {
       return "rock";
     } else if (temperature >= 30) {
       return "party";
