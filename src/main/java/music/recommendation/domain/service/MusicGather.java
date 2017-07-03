@@ -3,6 +3,7 @@ package music.recommendation.domain.service;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -42,7 +43,13 @@ public class MusicGather {
     this.restTemplate = restTemplate;
   }
 
-  @HystrixCommand(fallbackMethod = "fromCache")
+  @HystrixCommand(fallbackMethod = "fromCache", commandKey = "musicdata", groupKey = "music", commandProperties = {
+      @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "3000"),
+      @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
+      @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
+  }, threadPoolProperties = {
+      @HystrixProperty(name = "coreSize", value = "5"),
+      @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")})
   public Observable<List<String>> musicsByStyle(@NonNull final String style) {
     return Observable.create(subscriber -> {
       try{

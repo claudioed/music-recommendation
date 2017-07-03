@@ -3,6 +3,7 @@ package music.recommendation.domain.service;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import lombok.NonNull;
@@ -43,7 +44,13 @@ public class TemperatureGather {
     this.openWeatherCredentials = openWeatherCredentials;
   }
 
-  @HystrixCommand(fallbackMethod = "fromCache")
+  @HystrixCommand(fallbackMethod = "fromCache", commandKey = "weatherdata", groupKey = "weather", commandProperties = {
+      @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "3000"),
+      @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
+      @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
+  }, threadPoolProperties = {
+      @HystrixProperty(name = "coreSize", value = "5"),
+      @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")})
   public Observable<CurrentWeather> weatherData(@NonNull QueryData queryData) {
     if (queryData.isByCoordinate()) {
       return Observable.create(subscriber -> {
