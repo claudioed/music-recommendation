@@ -45,18 +45,26 @@ public class MusicGather {
   @HystrixCommand(fallbackMethod = "fromCache")
   public Observable<List<String>> musicsByStyle(@NonNull final String style) {
     return Observable.create(subscriber -> {
-      final HttpHeaders headers = new HttpHeaders();
-      LOGGER.info("Music Style Recommended is " + style);
-      headers.set("Authorization", "Bearer " + "BQAbTY6joiQR3dYRse3T7iMhf5wwbsje7kNiWzBUAfsPCVN6h3TvuG4tkgaOn4qBTfC7Zixu2GStoFfymZn1IduNVNWf9cAcwJ1q2EhqvCQDSnN5g6_xSSi8tKlInuv6jBvmAzjws1KnHh14IS_SbHjGjp6BvQ");
-      final HttpEntity httpEntity = new HttpEntity(headers);
-      final ResponseEntity<SpotifyResponse> response = restTemplate
-          .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET, httpEntity,
-              SpotifyResponse.class, style);
-      final List<String> musics = response.getBody().getTracks().getItems().stream()
-          .map(Track::getName).collect(Collectors.toList());
-      this.musicCache.put(style,musics) ;
-      subscriber.onNext(musics);
-      subscriber.onCompleted();
+      try{
+        final HttpHeaders headers = new HttpHeaders();
+        LOGGER.info("Music Style Recommended is " + style);
+        headers.set("Authorization", "Bearer "
+            + "BQANhZ52_iwghIS4oNJO4jOBxP2B44-Ds3wcdvSlagUANrw4Ad-uYw2qf7xszRMQ10ZI6z0XHVLhIH5c7q5oNuhLUSF03t087uhlZK2EA1UZ4dRRAqN8E-u-SZw-gTwAZj-L2iPF5JQ74kDpY1_7XEer_qnUcw");
+        final HttpEntity httpEntity = new HttpEntity(headers);
+        final ResponseEntity<SpotifyResponse> response = restTemplate
+            .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET, httpEntity,
+                SpotifyResponse.class, style);
+        final List<String> musics = response.getBody().getTracks().getItems().stream()
+            .map(Track::getName).collect(Collectors.toList());
+        this.musicCache.put(style, musics);
+        if(!subscriber.isUnsubscribed()){
+          subscriber.onNext(musics);
+          subscriber.onCompleted();
+        }
+      }catch (Exception ex){
+        LOGGER.error("Error on query musics",ex);
+        Observable.error(ex);
+      }
     });
   }
 

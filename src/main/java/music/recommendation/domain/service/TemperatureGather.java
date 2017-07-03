@@ -22,8 +22,6 @@ import rx.Observable;
 @Service
 public class TemperatureGather {
 
-  private final static Function<Double, Double> kelvinToCelsius = (kelvin) -> kelvin - 273;
-
   private static final Logger LOGGER = LoggerFactory.getLogger(TemperatureGather.class);
 
   private final Cache<String, CurrentWeather> cityCache = CacheBuilder
@@ -50,38 +48,36 @@ public class TemperatureGather {
     if (queryData.isByCoordinate()) {
       return Observable.create(subscriber -> {
         try {
-
-          LOGGER.info("QUERY BY COORDINATE...");
           final CurrentWeather data = restTemplate.getForObject(
               "http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={appid}",
               CurrentWeather.class, queryData.getLat(), queryData.getLon(),
               this.openWeatherCredentials.getApiKey());
-          LOGGER.info(String.format("Current temperature is %s (Celsius) ",
-              kelvinToCelsius.apply(data.getMain().getTemp())));
-          LOGGER
-              .info(String.format("Current temperature is %s (kelvin) ", data.getMain().getTemp()));
+          LOGGER.info(String.format("[BY COORDINATE] Current temperature in %s is %s (Kelvin) ",
+              data.getName(), data.getMain().getTemp()));
           coordCache.put(String.format(COOR_KEY_PATTERN, String.valueOf(queryData.getLat()),
               String.valueOf(queryData.getLon())), data);
-          subscriber.onNext(data);
-          subscriber.onCompleted();
-        }catch (Exception e){
+          if (!subscriber.isUnsubscribed()) {
+            subscriber.onNext(data);
+            subscriber.onCompleted();
+          }
+        } catch (Exception e) {
           LOGGER.error("Error on query city by coordinate", e);
           Observable.error(new RuntimeException("city by coordinate not found"));
         }
       });
     }
     return Observable.create(subscriber -> {
-      LOGGER.info("QUERY BY CITY...");
       try {
         final CurrentWeather data = restTemplate
             .getForObject("http://api.openweathermap.org/data/2.5/weather?q={city}&appid={apiKey}",
                 CurrentWeather.class, queryData.getCity(), this.openWeatherCredentials.getApiKey());
-        LOGGER.info(String.format("Current temperature is %s (Celsius) ",
-            kelvinToCelsius.apply(data.getMain().getTemp())));
-        LOGGER.info(String.format("Current temperature is %s (kelvin) ", data.getMain().getTemp()));
+        LOGGER.info(String.format("[BY CITY NAME] Current temperature in %s is %s (Kelvin) ",
+            data.getName(), data.getMain().getTemp()));
         cityCache.put(data.getName(), data);
-        subscriber.onNext(data);
-        subscriber.onCompleted();
+        if (!subscriber.isUnsubscribed()) {
+          subscriber.onNext(data);
+          subscriber.onCompleted();
+        }
       } catch (Exception e) {
         LOGGER.error("Error on query city by name", e);
         Observable.error(new RuntimeException("city by name not found"));
@@ -90,7 +86,6 @@ public class TemperatureGather {
   }
 
   public Observable<CurrentWeather> fromCache(@NonNull QueryData queryData) {
-    LOGGER.info("RETRIEVE TEMPERATURE DATA FROM CACHE...");
     if (queryData.isByCoordinate()) {
       LOGGER.info("RETRIEVE DATA TEMPERATURE FROM CACHE...COORDINATE");
       return Observable.just(this.coordCache.getIfPresent(String

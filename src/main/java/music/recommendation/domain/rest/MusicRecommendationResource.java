@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.DeferredResult;
+import rx.Observable;
 
 /**
  * @author claudioed on 02/07/17. Project music-recommendation
@@ -24,9 +26,12 @@ public class MusicRecommendationResource {
   }
 
   @GetMapping
-  public List<String> musics(@RequestParam("city") String city){
-    QueryData queryData = QueryData.builder().lat(null).lon(null).city(city).build();
-    return this.musicRecommendationService.musics(queryData).toBlocking().first();
+  public DeferredResult<List<String>> recommendation(@RequestParam(value = "city",required = false) String city,@RequestParam(value = "lat",required = false) Double lat,@RequestParam(value = "lon",required = false) Double lon){
+    QueryData queryData = QueryData.builder().lat(lat).lon(lon).city(city).build();
+    final Observable<List<String>> observable = this.musicRecommendationService.musics(queryData);
+    DeferredResult<List<String>> deffered = new DeferredResult<>(90l);
+    observable.subscribe(deffered::setResult, deffered::setErrorResult);
+    return deffered;
   }
 
 }

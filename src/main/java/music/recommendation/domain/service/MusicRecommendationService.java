@@ -4,6 +4,8 @@ import java.util.List;
 import lombok.NonNull;
 import music.recommendation.domain.music.CelsiusTemperature;
 import music.recommendation.domain.rest.model.QueryData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import rx.Observable;
@@ -13,6 +15,8 @@ import rx.Observable;
  */
 @Service
 public class MusicRecommendationService {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(MusicRecommendationService.class);
 
   private final TemperatureGather temperatureGather;
 
@@ -26,7 +30,9 @@ public class MusicRecommendationService {
 
   public Observable<List<String>> musics(@NonNull QueryData queryData){
     return this.temperatureGather.weatherData(queryData).map(el -> CelsiusTemperature
-        .builder().kelvinValue(el.getMain().getTemp()).build()).flatMap(data ->
+        .builder().kelvinValue(el.getMain().getTemp()).build())
+        .doOnNext(celsiusTemperature -> LOGGER.info(String.format("Temperature is %s (Celsius)",String.valueOf(celsiusTemperature.getValue()))))
+        .doOnError(Observable::error).flatMap(data ->
         musicGather.musicsByStyle(data.recommend()));
   }
 
