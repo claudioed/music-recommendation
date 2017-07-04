@@ -58,8 +58,6 @@ public class TemperatureGather {
                             "http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={appid}",
                             CurrentWeather.class, queryData.getLat(), queryData.getLon(),
                             this.openWeatherCredentials.getApiKey());
-                    LOGGER.info(String.format("[BY COORDINATE] Current temperature in %s is %s (Kelvin) ",
-                            data.getName(), data.getMain().getTemp()));
                     weatherCache.addBy(Strategy.COORDINATE, data);
                     if (!subscriber.isUnsubscribed()) {
                         subscriber.onNext(data);
@@ -76,8 +74,6 @@ public class TemperatureGather {
                 final CurrentWeather data = restTemplate
                         .getForObject("http://api.openweathermap.org/data/2.5/weather?q={city}&appid={apiKey}",
                                 CurrentWeather.class, queryData.getCity(), this.openWeatherCredentials.getApiKey());
-                LOGGER.info(String.format("[BY CITY NAME] Current temperature in %s is %s (Kelvin) ",
-                        data.getName(), data.getMain().getTemp()));
                 weatherCache.addBy(Strategy.NAME, data);
                 if (!subscriber.isUnsubscribed()) {
                     subscriber.onNext(data);

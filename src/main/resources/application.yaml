@@ -5,3 +5,7 @@ spotify:
 
 openweather:
   apikey: ${OPENWEATHER_API_KEY}
+
+server:
+  port: 8010
+

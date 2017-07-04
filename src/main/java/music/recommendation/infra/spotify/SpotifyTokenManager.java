@@ -24,46 +24,49 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class SpotifyTokenManager {
 
-    private static final String AUTH_URL = "https://accounts.spotify.com/api/token";
+  private static final String AUTH_URL = "https://accounts.spotify.com/api/token";
 
-    private final SpotifyCredentials spotifyCredentials;
+  private final SpotifyCredentials spotifyCredentials;
 
-    private final RestTemplate restTemplate;
+  private final RestTemplate restTemplate;
 
-    private final Cache<String, SpotifyToken> tokenCache = CacheBuilder.newBuilder().maximumSize(1).expireAfterWrite(3500, TimeUnit.SECONDS).build();
+  private final Cache<String, SpotifyToken> tokenCache = CacheBuilder.newBuilder().maximumSize(1)
+      .expireAfterWrite(3500, TimeUnit.SECONDS).build();
 
-    @Autowired
-    public SpotifyTokenManager(SpotifyCredentials spotifyCredentials, RestTemplate restTemplate) {
-        this.spotifyCredentials = spotifyCredentials;
-        this.restTemplate = restTemplate;
+  @Autowired
+  public SpotifyTokenManager(SpotifyCredentials spotifyCredentials, RestTemplate restTemplate) {
+    this.spotifyCredentials = spotifyCredentials;
+    this.restTemplate = restTemplate;
+  }
+
+  public Observable<SpotifyToken> token() {
+    final SpotifyToken token = tokenCache.getIfPresent("token");
+    if (Objects.nonNull(token)) {
+      return Observable.just(token);
     }
+    return Observable.create(subscriber -> {
+      final SpotifyToken newToken = auth();
+      tokenCache.put("token", newToken);
+      if (!subscriber.isUnsubscribed()) {
+        subscriber.onNext(newToken);
+        subscriber.onCompleted();
+      }
+    });
+  }
 
-    public Observable<SpotifyToken> token() {
-        final SpotifyToken token = tokenCache.getIfPresent("token");
-        if (Objects.nonNull(token)) {
-            return Observable.just(token);
-        }
-        return Observable.create(subscriber -> {
-            final SpotifyToken newToken = auth();
-            tokenCache.put("token",newToken);
-            if(!subscriber.isUnsubscribed()){
-                subscriber.onNext(newToken);
-                subscriber.onCompleted();
-            }
-        });
-    }
-
-    @SneakyThrows
-    private SpotifyToken auth() {
-        final String auth = spotifyCredentials.getClientId() + ":" + spotifyCredentials.getClientSecret();
-        final HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Basic "
-                + Base64.getEncoder().encodeToString(auth.getBytes("utf-8")));
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("grant_type", "client_credentials");
-        HttpEntity<MultiValueMap<String, String>> data = new HttpEntity<>(params, headers);
-        final ResponseEntity<SpotifyToken> tokenResponse = restTemplate.postForEntity(AUTH_URL, data, SpotifyToken.class);
-        return tokenResponse.getBody();
-    }
+  @SneakyThrows
+  private SpotifyToken auth() {
+    final String auth =
+        spotifyCredentials.getClientId() + ":" + spotifyCredentials.getClientSecret();
+    final HttpHeaders headers = new HttpHeaders();
+    headers.set("Authorization", "Basic "
+        + Base64.getEncoder().encodeToString(auth.getBytes("utf-8")));
+    MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+    params.add("grant_type", "client_credentials");
+    HttpEntity<MultiValueMap<String, String>> data = new HttpEntity<>(params, headers);
+    final ResponseEntity<SpotifyToken> tokenResponse = restTemplate
+        .postForEntity(AUTH_URL, data, SpotifyToken.class);
+    return tokenResponse.getBody();
+  }
 
 }
