@@ -32,11 +32,10 @@ public class MusicRecommendation {
     return this.temperatureGather.weatherData(queryData)
         .doOnNext(temp -> LOGGER.info(String.format("City is %s ",temp.getName())))
         .doOnError(Observable::error)
-        .map(el -> CelsiusTemperature
-        .builder().kelvinValue(el.getMain().getTemp()).build())
+        .map(el -> CelsiusTemperature.builder().kelvinValue(el.getMain().getTemp()).build())
         .doOnNext(celsiusTemperature -> LOGGER.info(String.format("Temperature is %s (Celsius)",String.valueOf(celsiusTemperature.getValue()))))
-        .doOnError(Observable::error).flatMap(data ->
-        musicGather.musicsByStyle(data.recommend()));
+        .doOnError(Observable::error)
+        .flatMap(data ->musicGather.musicsByStyle(data.recommend()));
   }
 
 }

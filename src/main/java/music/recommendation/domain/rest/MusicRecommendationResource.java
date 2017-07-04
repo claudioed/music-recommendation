@@ -29,7 +29,7 @@ public class MusicRecommendationResource {
   public DeferredResult<List<String>> recommendation(@RequestParam(value = "city",required = false) String city,@RequestParam(value = "lat",required = false) Double lat,@RequestParam(value = "lon",required = false) Double lon){
     QueryData queryData = QueryData.builder().lat(lat).lon(lon).city(city).build();
     final Observable<List<String>> observable = this.musicRecommendation.musics(queryData);
-    DeferredResult<List<String>> deffered = new DeferredResult<>(90l);
+    DeferredResult<List<String>> deffered = new DeferredResult<>(90L);
     observable.subscribe(deffered::setResult, deffered::setErrorResult);
     return deffered;
   }

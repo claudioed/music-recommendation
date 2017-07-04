@@ -2,13 +2,17 @@ package music.recommendation.domain.service;
 
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
 import lombok.NonNull;
+import music.recommendation.domain.exception.SpotifyException;
 import music.recommendation.domain.spotify.SpotifyResponse;
 import music.recommendation.domain.spotify.Track;
 import music.recommendation.infra.redis.MusicCache;
+import music.recommendation.infra.spotify.SpotifyTokenManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,59 +30,64 @@ import rx.Observable;
 @Service
 public class MusicGather {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MusicGather.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MusicGather.class);
 
-  private static final String API_SPOTIFY = "https://api.spotify.com/v1/search";
+    private static final String API_SPOTIFY = "https://api.spotify.com/v1/search";
 
-  private String QUERY_STRING_PATTERN = "?q=genre:{genre}&type=track";
+    private String QUERY_STRING_PATTERN = "?q=genre:{genre}&type=track";
 
-  private final RestTemplate restTemplate;
+    private final RestTemplate restTemplate;
 
-  private final MusicCache musicCache;
+    private final MusicCache musicCache;
 
-  @Autowired
-  public MusicGather(RestTemplate restTemplate,
-      MusicCache musicCache) {
-    this.restTemplate = restTemplate;
-    this.musicCache = musicCache;
-  }
+    private final SpotifyTokenManager spotifyTokenManager;
 
-  @HystrixCommand(fallbackMethod = "fromCache", commandKey = "musicdata", groupKey = "music", commandProperties = {
-      @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "3000"),
-      @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
-      @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
-  }, threadPoolProperties = {
-      @HystrixProperty(name = "coreSize", value = "5"),
-      @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")})
-  public Observable<List<String>> musicsByStyle(@NonNull final String style) {
-    return Observable.create(subscriber -> {
-      try{
-        final HttpHeaders headers = new HttpHeaders();
-        LOGGER.info("Music Style Recommended is " + style);
-        headers.set("Authorization", "Bearer "
-            + "BQBPAv6h8a4S6NRTvRNVzziQOK9YFczU7xJtgC-qiC3ZGDhWW9aovoKIjEMpxGuco9df7OnnhC5t1EDy_m2LiDqnyOpUmMRgdBL4ZRvfLJ2xgsdh4JM9LYPJgeHst7R7Q7IQbHQMUvxLeWW-Y9_k4cjU0NjeJg");
-        final HttpEntity httpEntity = new HttpEntity(headers);
-        final ResponseEntity<SpotifyResponse> response = restTemplate
-            .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET, httpEntity,
-                SpotifyResponse.class, style);
-        final List<String> musics = response.getBody().getTracks().getItems().stream()
-            .map(Track::getName).collect(Collectors.toList());
-        this.musicCache.addMusics(style,musics);
-        if(!subscriber.isUnsubscribed()){
-          subscriber.onNext(musics);
-          subscriber.onCompleted();
-        }
-      }catch (Exception ex){
-        LOGGER.error("Error on query musics",ex);
-        Observable.error(ex);
-      }
-    });
-  }
+    @Autowired
+    public MusicGather(RestTemplate restTemplate,
+                       MusicCache musicCache, SpotifyTokenManager spotifyTokenManager) {
+        this.restTemplate = restTemplate;
+        this.musicCache = musicCache;
+        this.spotifyTokenManager = spotifyTokenManager;
+    }
 
-  public Observable<List<String>> fromCache(@NonNull final String style) {
-    LOGGER.info("RETRIEVE DATA FROM MUSIC CACHE...");
-    final Optional<List<String>> musics = this.musicCache.getMusics(style);
-    return Observable.just(musics.get());
-  }
+    @HystrixCommand(fallbackMethod = "fromCache", commandKey = "musicdata", groupKey = "music", commandProperties = {
+            @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "3000"),
+            @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
+            @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
+    }, threadPoolProperties = {
+            @HystrixProperty(name = "coreSize", value = "5"),
+            @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")})
+    public Observable<List<String>> musicsByStyle(@NonNull final String style) {
+        return Observable.create(subscriber -> {
+            try {
+                spotifyTokenManager.token().subscribe(spotifyToken -> {
+                    final HttpHeaders headers = new HttpHeaders();
+                    LOGGER.info("Music Style Recommended is " + style);
+                    headers.set("Authorization", "Bearer "
+                            + spotifyToken.getAccessToken());
+                    final HttpEntity httpEntity = new HttpEntity(headers);
+                    final ResponseEntity<SpotifyResponse> response = restTemplate
+                            .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET, httpEntity,
+                                    SpotifyResponse.class, style);
+                    final List<String> musics = response.getBody().getTracks().getItems().stream()
+                            .map(Track::getName).collect(Collectors.toList());
+                    this.musicCache.addMusics(style, musics);
+                    if (!subscriber.isUnsubscribed()) {
+                        subscriber.onNext(musics);
+                        subscriber.onCompleted();
+                    }
+                }, Observable::error);
+            } catch (Exception ex) {
+                LOGGER.error("Error on query musics", ex);
+                Observable.error(new SpotifyException(ex));
+            }
+        });
+    }
+
+    public Observable<List<String>> fromCache(@NonNull final String style) {
+        LOGGER.info("RETRIEVE DATA FROM MUSIC CACHE...");
+        final Optional<List<String>> musics = this.musicCache.getMusics(style);
+        return Observable.just(musics.get());
+    }
 
 }

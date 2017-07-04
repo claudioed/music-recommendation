@@ -26,10 +26,10 @@ public class MusicStyleShufflerTests {
   }
 
   @Test
-  public void shouldBeParty(){
+  public void shouldBeElectro(){
     final String style = musicStyleShuffler
         .style(CelsiusTemperature.builder().kelvinValue(310.514).build().getValue());
-    assertThat(style).isEqualTo("party");
+    assertThat(style).isEqualTo("electro");
   }
 
   @Test
