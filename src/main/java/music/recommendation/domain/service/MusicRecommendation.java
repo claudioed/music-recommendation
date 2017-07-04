@@ -29,7 +29,10 @@ public class MusicRecommendation {
   }
 
   public Observable<List<String>> musics(@NonNull QueryData queryData){
-    return this.temperatureGather.weatherData(queryData).map(el -> CelsiusTemperature
+    return this.temperatureGather.weatherData(queryData)
+        .doOnNext(temp -> LOGGER.info(String.format("City is %s ",temp.getName())))
+        .doOnError(Observable::error)
+        .map(el -> CelsiusTemperature
         .builder().kelvinValue(el.getMain().getTemp()).build())
         .doOnNext(celsiusTemperature -> LOGGER.info(String.format("Temperature is %s (Celsius)",String.valueOf(celsiusTemperature.getValue()))))
         .doOnError(Observable::error).flatMap(data ->
