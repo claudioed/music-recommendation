@@ -14,16 +14,16 @@ import rx.Observable;
  * @author claudioed on 02/07/17. Project music-recommendation
  */
 @Service
-public class MusicRecommendationService {
+public class MusicRecommendation {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MusicRecommendationService.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(MusicRecommendation.class);
 
   private final TemperatureGather temperatureGather;
 
   private final MusicGather musicGather;
 
   @Autowired
-  public MusicRecommendationService(TemperatureGather temperatureGather, MusicGather musicGather) {
+  public MusicRecommendation(TemperatureGather temperatureGather, MusicGather musicGather) {
     this.temperatureGather = temperatureGather;
     this.musicGather = musicGather;
   }

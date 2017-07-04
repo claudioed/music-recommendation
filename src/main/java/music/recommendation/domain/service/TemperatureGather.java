@@ -1,14 +1,13 @@
 package music.recommendation.domain.service;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
+import java.util.Optional;
 import lombok.NonNull;
 import music.recommendation.domain.rest.model.QueryData;
 import music.recommendation.domain.weather.CurrentWeather;
+import music.recommendation.infra.redis.WeatherCache;
+import music.recommendation.infra.redis.WeatherCache.Strategy;
 import music.recommendation.infra.weather.OpenWeatherCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,23 +24,19 @@ public class TemperatureGather {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(TemperatureGather.class);
 
-  private final Cache<String, CurrentWeather> cityCache = CacheBuilder
-      .newBuilder().maximumSize(100).expireAfterWrite(24L, TimeUnit.HOURS).build();
-
-  private final Cache<String, CurrentWeather> coordCache = CacheBuilder
-      .newBuilder().maximumSize(100).expireAfterWrite(24L, TimeUnit.HOURS).build();
-
   private final RestTemplate restTemplate;
 
   private final OpenWeatherCredentials openWeatherCredentials;
 
-  private static final String COOR_KEY_PATTERN = "%s+%s";
+  private final WeatherCache weatherCache;
 
   @Autowired
   public TemperatureGather(RestTemplate restTemplate,
-      OpenWeatherCredentials openWeatherCredentials) {
+      OpenWeatherCredentials openWeatherCredentials,
+      WeatherCache weatherCache) {
     this.restTemplate = restTemplate;
     this.openWeatherCredentials = openWeatherCredentials;
+    this.weatherCache = weatherCache;
   }
 
   @HystrixCommand(fallbackMethod = "fromCache", commandKey = "weatherdata", groupKey = "weather", commandProperties = {
@@ -61,8 +56,7 @@ public class TemperatureGather {
               this.openWeatherCredentials.getApiKey());
           LOGGER.info(String.format("[BY COORDINATE] Current temperature in %s is %s (Kelvin) ",
               data.getName(), data.getMain().getTemp()));
-          coordCache.put(String.format(COOR_KEY_PATTERN, String.valueOf(queryData.getLat()),
-              String.valueOf(queryData.getLon())), data);
+          weatherCache.addBy(Strategy.COORDINATE,data);
           if (!subscriber.isUnsubscribed()) {
             subscriber.onNext(data);
             subscriber.onCompleted();
@@ -80,7 +74,7 @@ public class TemperatureGather {
                 CurrentWeather.class, queryData.getCity(), this.openWeatherCredentials.getApiKey());
         LOGGER.info(String.format("[BY CITY NAME] Current temperature in %s is %s (Kelvin) ",
             data.getName(), data.getMain().getTemp()));
-        cityCache.put(data.getName(), data);
+        weatherCache.addBy(Strategy.NAME,data);
         if (!subscriber.isUnsubscribed()) {
           subscriber.onNext(data);
           subscriber.onCompleted();
@@ -95,12 +89,13 @@ public class TemperatureGather {
   public Observable<CurrentWeather> fromCache(@NonNull QueryData queryData) {
     if (queryData.isByCoordinate()) {
       LOGGER.info("RETRIEVE DATA TEMPERATURE FROM CACHE...COORDINATE");
-      return Observable.just(this.coordCache.getIfPresent(String
-          .format(COOR_KEY_PATTERN, String.valueOf(queryData.getLat()),
-              String.valueOf(queryData.getLon()))));
+      final Optional<CurrentWeather> weather = this.weatherCache
+          .getByCoord(queryData.getLat(), queryData.getLon());
+      return Observable.just(weather.get());
     }
     LOGGER.info("RETRIEVE DATA FROM TEMPERATURE CACHE...CITY");
-    return Observable.just(this.cityCache.getIfPresent(queryData.getCity()));
+    final Optional<CurrentWeather> weather = this.weatherCache.getByName(queryData.getCity());
+    return Observable.just(weather.get());
   }
 
 }
