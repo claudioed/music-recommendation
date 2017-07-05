@@ -1,6 +1,7 @@
 package music.recommendation.domain.rest;
 
 import java.util.List;
+import music.recommendation.domain.exception.InvalidQueryException;
 import music.recommendation.domain.rest.model.QueryData;
 import music.recommendation.domain.service.MusicRecommendation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,10 +33,14 @@ public class MusicRecommendationResource {
       @RequestParam(value = "lat", required = false) Double lat,
       @RequestParam(value = "lon", required = false) Double lon) {
     QueryData queryData = QueryData.builder().lat(lat).lon(lon).city(city).build();
-    final Observable<List<String>> observable = this.musicRecommendation.musics(queryData);
-    DeferredResult<ResponseEntity<List<String>>> result = new DeferredResult<>(90L);
-    observable.subscribe(musics -> result.setResult(ResponseEntity.ok(musics)), result::setErrorResult);
-    return result;
+    if(queryData.isValid()){
+      final Observable<List<String>> observable = this.musicRecommendation.musics(queryData);
+      DeferredResult<ResponseEntity<List<String>>> result = new DeferredResult<>(90L);
+      observable.subscribe(musics -> result.setResult(ResponseEntity.ok(musics)), result::setErrorResult);
+      return result;
+    }else{
+      throw new InvalidQueryException();
+    }
   }
 
 }
