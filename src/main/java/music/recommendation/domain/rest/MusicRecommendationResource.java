@@ -3,8 +3,6 @@ package music.recommendation.domain.rest;
 import java.util.List;
 import music.recommendation.domain.rest.model.QueryData;
 import music.recommendation.domain.service.MusicRecommendation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,8 +18,6 @@ import rx.Observable;
 @RestController
 @RequestMapping("/api/recommendation")
 public class MusicRecommendationResource {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(MusicRecommendationResource.class);
 
   private final MusicRecommendation musicRecommendation;
 
