@@ -2,6 +2,8 @@ package music.recommendation.domain.service;
 
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import lombok.NonNull;
 import music.recommendation.domain.exception.OpenWeatherException;
@@ -52,45 +54,70 @@ public class TemperatureGather {
   public Observable<CurrentWeather> weatherData(@NonNull QueryData queryData) {
     if (queryData.isByCoordinate()) {
       return Observable.create(subscriber -> {
-        try {
-          final CurrentWeather data = restTemplate.getForObject(
-              "http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={appid}",
-              CurrentWeather.class, queryData.getLat(), queryData.getLon(),
-              this.openWeatherCredentials.getApiKey());
-          weatherCache.addBy(Strategy.COORDINATE, data);
-          if (!subscriber.isUnsubscribed()) {
-            subscriber.onNext(data);
+        if (!subscriber.isUnsubscribed()) {
+          final Optional<CurrentWeather> cachedWeather = checkCacheByCoord(queryData.getLat(),
+              queryData.getLon());
+          if (cachedWeather.isPresent()) {
+            LOGGER.info("[CITY CACHE BY COORD] RETRIEVE TEMPERATURE FROM CACHE...");
+            subscriber.onNext(cachedWeather.get());
             subscriber.onCompleted();
-          }
-        } catch (Exception e) {
-          LOGGER.error("Error on query city by coordinate", e);
-          if (e instanceof HttpClientErrorException){
-            subscriber.onError(new PlaceNotFoundException());
-          }else{
-            subscriber.onError(new OpenWeatherException());
+          } else {
+            try {
+              final CurrentWeather data = restTemplate.getForObject(
+                  "http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={appid}",
+                  CurrentWeather.class, queryData.getLat(), queryData.getLon(),
+                  this.openWeatherCredentials.getApiKey());
+              weatherCache.addBy(Strategy.COORDINATE, data);
+              subscriber.onNext(data);
+              subscriber.onCompleted();
+            } catch (Exception e) {
+              LOGGER.error("Error on query city by coordinate", e);
+              if (e instanceof HttpClientErrorException) {
+                subscriber.onError(new PlaceNotFoundException());
+              } else {
+                subscriber.onError(new OpenWeatherException());
+              }
+            }
           }
         }
       });
     }
     return Observable.create(subscriber -> {
-      try {
-        final CurrentWeather data = restTemplate
-            .getForObject("http://api.openweathermap.org/data/2.5/weather?q={city}&appid={apiKey}",
-                CurrentWeather.class, queryData.getCity(), this.openWeatherCredentials.getApiKey());
-        weatherCache.addBy(Strategy.NAME, data);
-        if (!subscriber.isUnsubscribed()) {
-          subscriber.onNext(data);
+      if (!subscriber.isUnsubscribed()) {
+        final Optional<CurrentWeather> cachedWeather = checkCacheByCityName(queryData.getCity());
+        if (cachedWeather.isPresent()) {
+          LOGGER.info("[CITY CACHE BY NAME] RETRIEVE TEMPERATURE FROM CACHE...");
+          subscriber.onNext(cachedWeather.get());
           subscriber.onCompleted();
-        }
-      } catch (Exception e) {
-        LOGGER.error("Error on query city by name", e);
-        if (e instanceof HttpClientErrorException){
-          subscriber.onError(new PlaceNotFoundException());
-        }else{
-          subscriber.onError(new OpenWeatherException());
+        } else {
+          try {
+            final CurrentWeather data = restTemplate
+                .getForObject(
+                    "http://api.openweathermap.org/data/2.5/weather?q={city}&appid={apiKey}",
+                    CurrentWeather.class, queryData.getCity(),
+                    this.openWeatherCredentials.getApiKey());
+            weatherCache.addBy(Strategy.NAME, data);
+            subscriber.onNext(data);
+            subscriber.onCompleted();
+          } catch (Exception e) {
+            LOGGER.error("Error on query city by name", e);
+            if (e instanceof HttpClientErrorException) {
+              subscriber.onError(new PlaceNotFoundException());
+            } else {
+              subscriber.onError(new OpenWeatherException());
+            }
+          }
         }
       }
     });
+  }
+
+  private Optional<CurrentWeather> checkCacheByCityName(@NonNull String city) {
+    return this.weatherCache.getByName(city);
+  }
+
+  private Optional<CurrentWeather> checkCacheByCoord(@NonNull Double lat, @NonNull Double lon) {
+    return this.weatherCache.getByCoord(lat, lon);
   }
 
   public Observable<CurrentWeather> fromCache(@NonNull QueryData queryData) {

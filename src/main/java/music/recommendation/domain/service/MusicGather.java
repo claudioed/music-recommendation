@@ -57,7 +57,7 @@ public class MusicGather {
       @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")})
   public Observable<List<String>> musicsByStyle(@NonNull final String style) {
     return Observable.create(subscriber -> {
-      if (subscriber.isUnsubscribed()) {
+      if (!subscriber.isUnsubscribed()) {
         final List<String> cachedMusics = checkCache(style);
         if (!cachedMusics.isEmpty()) {
           subscriber.onNext(cachedMusics);
@@ -90,9 +90,9 @@ public class MusicGather {
   }
 
   private List<String> checkCache(@NonNull String style) {
-    LOGGER.info("[CACHE] RETRIEVE DATA FROM MUSIC CACHE...");
     final Optional<List<String>> musics = this.musicCache.getMusics(style);
     if (musics.isPresent() && !musics.get().isEmpty()) {
+      LOGGER.info("[MUSIC CACHE] RETRIEVE DATA FROM MUSIC CACHE...");
       return musics.get();
     }
     return new ArrayList<>();

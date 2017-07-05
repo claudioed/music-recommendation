@@ -21,7 +21,7 @@ public class MusicCache {
 
   private static final String PATTERN = "style:%s";
 
-  private static final Long MUSIC_TTL = 7200L;
+  private static final Integer MUSIC_TTL = 7200;
 
   @Autowired
   public MusicCache(JedisPool jedisPool) {
@@ -33,7 +33,7 @@ public class MusicCache {
     try (Jedis jedis = jedisPool.getResource()) {
       final String key = String.format(PATTERN, style);
       jedis.sadd(key, musics.toArray(new String[musics.size()]));
-      jedis.expireAt(key,MUSIC_TTL);
+      jedis.expire(key,MUSIC_TTL);
     }
   }
 

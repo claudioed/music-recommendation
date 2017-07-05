@@ -36,6 +36,8 @@ public class WeatherCache {
 
   private final ObjectMapper mapper;
 
+  private static final Integer WEATHER_TTL = 36000;
+
   @Autowired
   public WeatherCache(JedisPool jedisPool, ObjectMapper mapper) {
     this.jedisPool = jedisPool;
@@ -49,9 +51,10 @@ public class WeatherCache {
         jedis.set(String.format(strategy.PATTERN, weather.getName()),
             this.mapper.writeValueAsString(weather));
       } else if (Strategy.COORDINATE.equals(strategy)) {
-        jedis.set(String
-                .format(strategy.PATTERN, weather.getCoord().getLat(), weather.getCoord().getLon()),
-            this.mapper.writeValueAsString(weather));
+        final String key = String
+            .format(strategy.PATTERN, weather.getCoord().getLat(), weather.getCoord().getLon());
+        jedis.set(key,this.mapper.writeValueAsString(weather));
+        jedis.expire(key,WEATHER_TTL);
       } else {
         throw new IllegalArgumentException("Invalid strategy");
       }
