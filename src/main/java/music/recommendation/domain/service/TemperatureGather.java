@@ -43,7 +43,7 @@ public class TemperatureGather {
   }
 
   @HystrixCommand(fallbackMethod = "fromCache", commandKey = "weatherdata", groupKey = "weather", commandProperties = {
-      @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "13000"),
+      @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "2000"),
       @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
       @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
   }, threadPoolProperties = {

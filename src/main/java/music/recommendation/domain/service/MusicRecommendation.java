@@ -35,6 +35,7 @@ public class MusicRecommendation {
         .map(el -> CelsiusTemperature.builder().kelvinValue(el.getMain().getTemp()).build())
         .doOnNext(celsiusTemperature -> LOGGER.info(String.format("Temperature is %s (Celsius)",String.valueOf(celsiusTemperature.getValue()))))
         .doOnError(Observable::error)
+        .doOnNext(data -> LOGGER.info(String.format("Recommended styles is %s ",String.valueOf(data.recommend()))))
         .flatMap(data ->musicGather.musicsByStyle(data.recommend()));
   }
 

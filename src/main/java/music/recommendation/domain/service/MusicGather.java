@@ -49,7 +49,7 @@ public class MusicGather {
   }
 
   @HystrixCommand(fallbackMethod = "fromCache", commandKey = "musicdata", groupKey = "music", commandProperties = {
-      @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "3000"),
+      @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "2000"),
       @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
       @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
   }, threadPoolProperties = {
