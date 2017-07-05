@@ -7,11 +7,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * Open Weather API Exception
  * Created by claudio on 04/07/17.
  */
-@ResponseStatus(HttpStatus.BAD_REQUEST)
+@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
 public class OpenWeatherException extends RuntimeException {
 
-    public OpenWeatherException(Exception ex) {
-        super("Error on contact open weather web api",ex);
+    public OpenWeatherException() {
+        super("Error on contact open weather web api");
     }
 
 }

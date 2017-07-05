@@ -1,6 +1,7 @@
 package music.recommendation.infra.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import java.util.Optional;
 import lombok.Getter;
 import lombok.NonNull;
@@ -61,6 +62,9 @@ public class WeatherCache {
   public Optional<CurrentWeather> getByName(@NonNull String name){
     try (Jedis jedis = jedisPool.getResource()) {
       final String data = jedis.get(String.format(Strategy.NAME.PATTERN, name));
+      if(Strings.isNullOrEmpty(data)){
+        return Optional.empty();
+      }
       return Optional.ofNullable(this.mapper.readValue(data, CurrentWeather.class));
     }
   }
