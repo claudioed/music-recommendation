@@ -73,6 +73,9 @@ public class WeatherCache {
   public Optional<CurrentWeather> getByCoord(@NonNull Double lat,@NonNull Double lon){
     try (Jedis jedis = jedisPool.getResource()) {
       final String data = jedis.get(String.format(Strategy.COORDINATE.PATTERN, lat, lon));
+      if(Strings.isNullOrEmpty(data)){
+        return Optional.empty();
+      }
       return Optional.ofNullable(this.mapper.readValue(data, CurrentWeather.class));
     }
   }

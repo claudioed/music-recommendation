@@ -98,7 +98,8 @@ public class TemperatureGather {
       LOGGER.info("RETRIEVE DATA TEMPERATURE FROM CACHE...COORDINATE");
       final Optional<CurrentWeather> weather = this.weatherCache
           .getByCoord(queryData.getLat(), queryData.getLon());
-      return Observable.just(weather.get());
+      return weather.map(Observable::just)
+          .orElseGet(() -> Observable.error(new PlaceNotFoundException()));
     }
     LOGGER.info("RETRIEVE DATA FROM TEMPERATURE CACHE...CITY");
     final Optional<CurrentWeather> weather = this.weatherCache.getByName(queryData.getCity());
