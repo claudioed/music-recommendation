@@ -6,6 +6,9 @@ spotify:
 openweather:
   apikey: ${OPENWEATHER_API_KEY}
 
+redis:
+  host: ${REDIS_HOST}
+
 server:
   port: 8010
 
