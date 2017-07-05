@@ -2,6 +2,7 @@ package music.recommendation.domain.service;
 
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -41,8 +42,7 @@ public class MusicGather {
   private final SpotifyTokenManager spotifyTokenManager;
 
   @Autowired
-  public MusicGather(RestTemplate restTemplate,
-      MusicCache musicCache, SpotifyTokenManager spotifyTokenManager) {
+  public MusicGather(RestTemplate restTemplate, MusicCache musicCache, SpotifyTokenManager spotifyTokenManager) {
     this.restTemplate = restTemplate;
     this.musicCache = musicCache;
     this.spotifyTokenManager = spotifyTokenManager;
@@ -57,34 +57,51 @@ public class MusicGather {
       @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")})
   public Observable<List<String>> musicsByStyle(@NonNull final String style) {
     return Observable.create(subscriber -> {
-      try {
-        spotifyTokenManager.token().subscribe(spotifyToken -> {
-          final HttpHeaders headers = new HttpHeaders();
-          headers.set("Authorization", "Bearer "
-              + spotifyToken.getAccessToken());
-          final HttpEntity httpEntity = new HttpEntity(headers);
-          final ResponseEntity<SpotifyResponse> response = restTemplate
-              .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET, httpEntity,
-                  SpotifyResponse.class, style);
-          final List<String> musics = response.getBody().getTracks().getItems().stream()
-              .map(Track::getName).collect(Collectors.toList());
-          this.musicCache.addMusics(style, musics);
-          if (!subscriber.isUnsubscribed()) {
-            subscriber.onNext(musics);
-            subscriber.onCompleted();
+      if (subscriber.isUnsubscribed()) {
+        final List<String> cachedMusics = checkCache(style);
+        if (!cachedMusics.isEmpty()) {
+          subscriber.onNext(cachedMusics);
+          subscriber.onCompleted();
+        } else {
+          try {
+            spotifyTokenManager.token().subscribe(spotifyToken -> {
+              final ResponseEntity<SpotifyResponse> response = restTemplate
+                  .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET, buildHeaders(spotifyToken.getAccessToken()),
+                      SpotifyResponse.class, style);
+              final List<String> musics = response.getBody().getTracks().getItems().stream()
+                  .map(Track::getName).collect(Collectors.toList());
+              this.musicCache.addMusics(style, musics);
+              subscriber.onNext(musics);
+              subscriber.onCompleted();
+            }, Observable::error);
+          } catch (Exception ex) {
+            LOGGER.error("Error on query musics", ex);
+            Observable.error(new SpotifyException(ex));
           }
-        }, Observable::error);
-      } catch (Exception ex) {
-        LOGGER.error("Error on query musics", ex);
-        Observable.error(new SpotifyException(ex));
+        }
       }
     });
   }
 
-  public Observable<List<String>> fromCache(@NonNull final String style) {
-    LOGGER.info("RETRIEVE DATA FROM MUSIC CACHE...");
+  private HttpEntity buildHeaders(String token){
+    final HttpHeaders headers = new HttpHeaders();
+    headers.set("Authorization", "Bearer "+ token);
+    return new HttpEntity(headers);
+  }
+
+  private List<String> checkCache(@NonNull String style) {
+    LOGGER.info("[CACHE] RETRIEVE DATA FROM MUSIC CACHE...");
     final Optional<List<String>> musics = this.musicCache.getMusics(style);
-    return Observable.just(musics.get());
+    if (musics.isPresent() && !musics.get().isEmpty()) {
+      return musics.get();
+    }
+    return new ArrayList<>();
+  }
+
+  public Observable<List<String>> fromCache(@NonNull final String style) {
+    LOGGER.info("[FALLBACK] RETRIEVE DATA FROM MUSIC CACHE...");
+    final Optional<List<String>> musics = this.musicCache.getMusics(style);
+    return musics.map(Observable::just).orElseGet(Observable::empty);
   }
 
 }

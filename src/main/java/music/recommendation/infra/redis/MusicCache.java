@@ -1,15 +1,11 @@
 package music.recommendation.infra.redis;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import lombok.Getter;
 import lombok.NonNull;
 import lombok.SneakyThrows;
-import music.recommendation.domain.weather.CurrentWeather;
-import music.recommendation.infra.redis.WeatherCache.Strategy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
@@ -23,25 +19,26 @@ public class MusicCache {
 
   private final JedisPool jedisPool;
 
-  private final ObjectMapper mapper;
-
   private static final String PATTERN = "style:%s";
 
+  private static final Long MUSIC_TTL = 7200L;
+
   @Autowired
-  public MusicCache(JedisPool jedisPool, ObjectMapper mapper) {
+  public MusicCache(JedisPool jedisPool) {
     this.jedisPool = jedisPool;
-    this.mapper = mapper;
   }
 
   @SneakyThrows
-  public void addMusics(@NonNull String style,@NonNull List<String> musics){
+  public void addMusics(@NonNull String style, @NonNull List<String> musics) {
     try (Jedis jedis = jedisPool.getResource()) {
-        jedis.sadd(String.format(PATTERN,style),musics.toArray(new String[musics.size()]));
-      }
+      final String key = String.format(PATTERN, style);
+      jedis.sadd(key, musics.toArray(new String[musics.size()]));
+      jedis.expireAt(key,MUSIC_TTL);
+    }
   }
 
   @SneakyThrows
-  public Optional<List<String>> getMusics(@NonNull String style){
+  public Optional<List<String>> getMusics(@NonNull String style) {
     try (Jedis jedis = jedisPool.getResource()) {
       final Set<String> musics = jedis.smembers(String.format(PATTERN, style));
       return Optional.of(new ArrayList<>(musics));

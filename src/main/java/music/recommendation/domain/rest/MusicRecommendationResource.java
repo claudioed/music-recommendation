@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.DeferredResult;
 import rx.Observable;
-import rx.functions.Action1;
 
 /**
  * @author claudioed on 02/07/17. Project music-recommendation
