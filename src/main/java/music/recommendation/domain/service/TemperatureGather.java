@@ -47,9 +47,10 @@ public class TemperatureGather {
   @HystrixCommand(fallbackMethod = "fromCache", commandKey = "weatherdata", groupKey = "weather", commandProperties = {
       @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "2000"),
       @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
+      @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "20"),
+      @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "2000"),
       @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
   }, threadPoolProperties = {
-      @HystrixProperty(name = "coreSize", value = "5"),
       @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")})
   public Observable<CurrentWeather> weatherData(@NonNull QueryData queryData) {
     if (queryData.isByCoordinate()) {

@@ -48,12 +48,13 @@ public class MusicGather {
     this.spotifyTokenManager = spotifyTokenManager;
   }
 
-  @HystrixCommand(fallbackMethod = "fromCache", commandKey = "musicdata", groupKey = "music", commandProperties = {
+  @HystrixCommand(fallbackMethod = "fromCache", commandKey = "weatherdata", groupKey = "weather", commandProperties = {
       @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "2000"),
       @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
+      @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "20"),
+      @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "2000"),
       @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")
   }, threadPoolProperties = {
-      @HystrixProperty(name = "coreSize", value = "5"),
       @HystrixProperty(name = "metrics.rollingStats.timeInMilliseconds", value = "10000")})
   public Observable<List<String>> musicsByStyle(@NonNull final String style) {
     return Observable.create(subscriber -> {
