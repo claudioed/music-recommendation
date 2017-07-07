@@ -21,7 +21,7 @@ public class MusicCache {
 
   private static final String PATTERN = "style:%s";
 
-  private static final Integer MUSIC_TTL = 7200;
+  private static final Integer MUSIC_TTL = 36000;
 
   @Autowired
   public MusicCache(JedisPool jedisPool) {

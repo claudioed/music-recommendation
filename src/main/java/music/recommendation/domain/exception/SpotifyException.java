@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @ResponseStatus(HttpStatus.BAD_REQUEST)
 public class SpotifyException extends RuntimeException {
 
-    public SpotifyException(Exception ex) {
+    public SpotifyException(Throwable ex) {
         super("Error on contact spotify web api",ex);
     }
 

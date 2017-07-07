@@ -18,9 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.AsyncRestTemplate;
 import rx.Observable;
 
 /**
@@ -35,20 +34,22 @@ public class MusicGather {
 
   private String QUERY_STRING_PATTERN = "?q=genre:{genre}&type=track";
 
-  private final RestTemplate restTemplate;
+  private final AsyncRestTemplate restTemplate;
 
   private final MusicCache musicCache;
 
   private final SpotifyTokenManager spotifyTokenManager;
 
   @Autowired
-  public MusicGather(RestTemplate restTemplate, MusicCache musicCache, SpotifyTokenManager spotifyTokenManager) {
+  public MusicGather(AsyncRestTemplate restTemplate, MusicCache musicCache,
+      SpotifyTokenManager spotifyTokenManager) {
     this.restTemplate = restTemplate;
     this.musicCache = musicCache;
     this.spotifyTokenManager = spotifyTokenManager;
   }
 
   @HystrixCommand(fallbackMethod = "fromCache", commandKey = "weatherdata", groupKey = "weather", commandProperties = {
+      @HystrixProperty(name = "execution.isolation.semaphore.maxConcurrentRequests", value = "50"),
       @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds", value = "2000"),
       @HystrixProperty(name = "circuitBreaker.requestVolumeThreshold", value = "100"),
       @HystrixProperty(name = "circuitBreaker.errorThresholdPercentage", value = "20"),
@@ -64,29 +65,29 @@ public class MusicGather {
           subscriber.onNext(cachedMusics);
           subscriber.onCompleted();
         } else {
-          try {
-            spotifyTokenManager.token().subscribe(spotifyToken -> {
-              final ResponseEntity<SpotifyResponse> response = restTemplate
-                  .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET, buildHeaders(spotifyToken.getAccessToken()),
-                      SpotifyResponse.class, style);
-              final List<String> musics = response.getBody().getTracks().getItems().stream()
-                  .map(Track::getName).collect(Collectors.toList());
-              this.musicCache.addMusics(style, musics);
-              subscriber.onNext(musics);
-              subscriber.onCompleted();
-            }, Observable::error);
-          } catch (Exception ex) {
-            LOGGER.error("Error on query musics", ex);
-            Observable.error(new SpotifyException(ex));
-          }
+          spotifyTokenManager.token().subscribe(spotifyToken -> Observable.from(restTemplate
+              .exchange(API_SPOTIFY + QUERY_STRING_PATTERN, HttpMethod.GET,
+                  buildHeaders(spotifyToken.getAccessToken()),
+                  SpotifyResponse.class, style)).subscribe(
+              spotifyResponseResponseEntity -> {
+                final List<String> musics = spotifyResponseResponseEntity.getBody().getTracks()
+                    .getItems().stream()
+                    .map(Track::getName).collect(Collectors.toList());
+                musicCache.addMusics(style, musics);
+                subscriber.onNext(musics);
+                subscriber.onCompleted();
+              }, ex -> {
+                LOGGER.error("Error on query musics", ex);
+                Observable.error(new SpotifyException(ex));
+              }),Observable::error);
         }
       }
     });
   }
 
-  private HttpEntity buildHeaders(String token){
+  private HttpEntity buildHeaders(String token) {
     final HttpHeaders headers = new HttpHeaders();
-    headers.set("Authorization", "Bearer "+ token);
+    headers.set("Authorization", "Bearer " + token);
     return new HttpEntity(headers);
   }
 
